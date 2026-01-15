@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibrating String Stress Analysis</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a26;
+            --accent-cyan: #00d4ff;
+            --accent-orange: #ff6b35;
+            --accent-yellow: #ffd93d;
+            --text-primary: #e8e8ed;
+            --text-secondary: #9090a0;
+            --text-muted: #606070;
+            --border-color: #2a2a3a;
+            --success: #4ade80;
+            --warning: #fbbf24;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        header h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .controls-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1.25rem;
+            align-items: end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+        }
+
+        .control-group input,
+        .control-group select {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            padding: 0.65rem 0.9rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .control-group input:focus,
+        .control-group select:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+        }
+
+        .control-group select option {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .btn-compute {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 0.65rem 1.5rem;
+            background: linear-gradient(135deg, var(--accent-cyan), #0099cc);
+            border: none;
+            border-radius: 8px;
+            color: var(--bg-primary);
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .btn-compute:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-compute:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: background 0.3s;
+        }
+
+        .status-indicator.ready { background: var(--success); }
+        .status-indicator.computing { 
+            background: var(--warning);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text { color: var(--text-secondary); }
+        .elapsed-time { margin-left: auto; color: var(--accent-cyan); }
+
+        .progress-container {
+            padding: 0 1.5rem 1rem;
+            display: none;
+        }
+
+        .progress-container.visible { display: block; }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-orange));
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .viz-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1200px) {
+            .viz-grid { grid-template-columns: 1fr; }
+        }
+
+        .viz-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .viz-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .viz-header h2 {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .viz-header .hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .viz-content {
+            padding: 1rem;
+            min-height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .viz-placeholder {
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .viz-placeholder svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+
+        .selected-mode-info {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent-orange);
+            padding: 0.5rem 1rem;
+            background: rgba(255, 107, 53, 0.1);
+            border-radius: 4px;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+            white-space: nowrap;
+        }
+
+        .formula-section {
+            margin-top: 1.5rem;
+            padding: 1.25rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+        }
+
+        .formula-section h3 {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .formula-block {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            overflow-x: auto;
+            color: var(--accent-cyan);
+            line-height: 1.8;
+        }
+
+        .formula-block .comment {
+            color: var(--text-muted);
+        }
+
+        .colorbar {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .colorbar-gradient {
+            width: 20px;
+            height: 200px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .colorbar-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Vibrating String Stress Analysis</h1>
+            <p>Interactive visualization of mechanical stress in superimposed vibrational modes</p>
+        </header>
+
+        <div class="controls-panel">
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label>N (Number of Modes)</label>
+                    <input type="number" id="inputN" value="50" min="2" max="500">
+                </div>
+
+                <div class="control-group">
+                    <label>E/σ_y Ratio</label>
+                    <input type="number" id="inputESigma" value="1.0" step="0.1" min="0.01">
+                </div>
+
+                <div class="control-group">
+                    <label>Spatial Measure</label>
+                    <select id="selectMeasure">
+                        <option value="L2" selected>L² (RMS)</option>
+                        <option value="L1">L¹ (Mean) — Coming soon</option>
+                        <option value="Linf">L∞ (Max) — Coming soon</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Amplitude Normalization</label>
+                    <select id="selectAmplitude">
+                        <option value="equal" selected>Equal amplitude (A=1)</option>
+                        <option value="energy">Energy normalized — Coming soon</option>
+                        <option value="stress">Stress normalized — Coming soon</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>&nbsp;</label>
+                    <button class="btn-compute" id="btnCompute">Compute Matrix</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <span class="status-text" id="statusText">Ready to compute</span>
+            <span class="elapsed-time" id="elapsedTime"></span>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="viz-grid">
+            <div class="viz-panel">
+                <div class="viz-header">
+                    <h2>Stress Matrix R[n₁, n₂]</h2>
+                    <span class="hint">Click a row to view its curve</span>
+                </div>
+                <div class="viz-content" id="heatmapContainer">
+                    <div class="viz-placeholder" id="heatmapPlaceholder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <path d="M3 9h18M9 3v18"/>
+                        </svg>
+                        <p>Click "Compute Matrix" to generate heatmap</p>
+                    </div>
+                    <canvas id="heatmapCanvas" style="display:none;"></canvas>
+                    <div class="tooltip" id="heatmapTooltip"></div>
+                    <div class="colorbar" id="colorbar" style="display:none;">
+                        <span class="colorbar-label" id="colorbarMax">1.0</span>
+                        <div class="colorbar-gradient" id="colorbarGradient"></div>
+                        <span class="colorbar-label" id="colorbarMin">0.0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="viz-panel">
+                <div class="viz-header">
+                    <h2>Stress Curve</h2>
+                    <span class="selected-mode-info" id="selectedModeInfo" style="display: none;">
+                        Reference mode: n = <span id="selectedModeN">—</span>
+                    </span>
+                </div>
+                <div class="viz-content" id="curveContainer">
+                    <div class="viz-placeholder" id="curvePlaceholder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M3 20h18M5 17c2-4 4-8 7-8s5 4 7 8"/>
+                        </svg>
+                        <p>Select a row from the heatmap to view stress curve</p>
+                    </div>
+                    <canvas id="curveCanvas" style="display:none;"></canvas>
+                    <div class="tooltip" id="curveTooltip"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="formula-section">
+            <h3>Current Computation Model</h3>
+            <div class="formula-block">
+                <span class="comment">// Displacement field (two superimposed modes)</span><br>
+                w(x,t) = A·sin(n₁·π·x)·cos(ω₁·t) + A·sin(n₂·π·x)·cos(ω₂·t)<br><br>
+                
+                <span class="comment">// Spatial derivative</span><br>
+                ∂w/∂x = A·n₁·π·cos(n₁·π·x)·cos(ω₁·t) + A·n₂·π·cos(n₂·π·x)·cos(ω₂·t)<br><br>
+                
+                <span class="comment">// Strain (geometric deformation)</span><br>
+                ε(x,t) = ½·(∂w/∂x)²<br><br>
+                
+                <span class="comment">// Stress proximity to yield</span><br>
+                ρ(x,t) = (E/σ_y)·ε(x,t)<br><br>
+                
+                <span class="comment">// L² spatial aggregation</span><br>
+                ρ_L2(t) = √[ ∫₀¹ ρ²(x,t) dx ]<br><br>
+                
+                <span class="comment">// Temporal average over full period T = 2π / gcd(ω₁,ω₂)</span><br>
+                R[n₁, n₂] = (1/T)·∫₀ᵀ ρ_L2(t) dt
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Vibrating String Stress Analysis
+         * Pure Canvas Implementation - No External Libraries
+         * 
+         * TODO: For production use, replace numerical integration with analytical formulas.
+         * The integrals involve products of cosines and can be computed exactly using
+         * trigonometric identities. See computeStressMatrix() for details.
+         */
+
+        // ============================================================
+        // GLOBAL STATE
+        // ============================================================
+        
+        let currentMatrix = null;
+        let currentN = 0;
+        let minVal = 0;
+        let maxVal = 1;
+
+        // ============================================================
+        // COLOR UTILITIES
+        // ============================================================
+
+        /**
+         * Convert value [0,1] to color using scientific colormap
+         * Blue → Cyan → Yellow → Orange → Red
+         */
+        function valueToColor(t) {
+            t = Math.max(0, Math.min(1, t));
+            
+            const stops = [
+                { pos: 0.0, r: 10, g: 10, b: 32 },
+                { pos: 0.2, r: 26, g: 35, b: 126 },
+                { pos: 0.4, r: 0, g: 131, b: 143 },
+                { pos: 0.6, r: 255, g: 217, b: 61 },
+                { pos: 0.8, r: 255, g: 107, b: 53 },
+                { pos: 1.0, r: 255, g: 23, b: 68 }
+            ];
+
+            let i = 0;
+            while (i < stops.length - 1 && stops[i + 1].pos < t) i++;
+            
+            const s0 = stops[i];
+            const s1 = stops[Math.min(i + 1, stops.length - 1)];
+            const localT = (t - s0.pos) / (s1.pos - s0.pos || 1);
+
+            const r = Math.round(s0.r + (s1.r - s0.r) * localT);
+            const g = Math.round(s0.g + (s1.g - s0.g) * localT);
+            const b = Math.round(s0.b + (s1.b - s0.b) * localT);
+
+            return `rgb(${r},${g},${b})`;
+        }
+
+        // ============================================================
+        // MATH UTILITIES
+        // ============================================================
+
+        function gcd(a, b) {
+            a = Math.abs(Math.round(a));
+            b = Math.abs(Math.round(b));
+            while (b !== 0) {
+                const t = b;
+                b = a % b;
+                a = t;
+            }
+            return a;
+        }
+
+        function lcm(a, b) {
+            return Math.abs(a * b) / gcd(a, b);
+        }
+
+        // ============================================================
+        // CORE PHYSICS COMPUTATION
+        // ============================================================
+
+        /**
+         * Compute the stress matrix R[n1][n2] for all mode pairs.
+         * 
+         * TODO: ANALYTICAL INTEGRATION
+         * ---------------------------------------------------------
+         * Replace numerical integration with closed-form solutions.
+         * 
+         * The spatial integral of ρ² involves:
+         *   ∫₀¹ [A₁n₁π·cos(n₁πx)·cos(ω₁t) + A₂n₂π·cos(n₂πx)·cos(ω₂t)]⁴ dx
+         * 
+         * Expanding and using ∫₀¹ cos²(nπx) dx = 1/2
+         * and orthogonality relations for different modes.
+         * 
+         * The temporal integral similarly uses:
+         *   ∫₀ᵀ cos²(ωt) dt = T/2
+         *   ∫₀ᵀ cos(ω₁t)cos(ω₂t) dt = 0 when ω₁ ≠ ω₂
+         * ---------------------------------------------------------
+         */
+        function computeStressMatrix(N, E_sigma_y, measureType, progressCallback) {
+            if (measureType === 'L1') {
+                alert('L¹ (Mean) measure not yet implemented. Using L² instead.');
+                measureType = 'L2';
+            }
+            if (measureType === 'Linf') {
+                alert('L∞ (Max) measure not yet implemented. Using L² instead.');
+                measureType = 'L2';
+            }
+
+            const A = 1.0;
+            const PI = Math.PI;
+
+            const R = new Array(N + 1);
+            for (let i = 0; i <= N; i++) {
+                R[i] = new Float64Array(N + 1);
+            }
+
+            // TODO: Replace with analytical integration
+            const numX = 100;
+            const numT = 100;
+
+            const totalPairs = N * N;
+            let computedPairs = 0;
+
+            for (let n1 = 1; n1 <= N; n1++) {
+                for (let n2 = 1; n2 <= N; n2++) {
+                    if (n2 < n1) {
+                        R[n1][n2] = R[n2][n1];
+                        computedPairs++;
+                        continue;
+                    }
+
+                    const omega1 = n1;
+                    const omega2 = n2;
+
+                    // Period using LCM for complete coverage
+                    const T_period = (2 * PI * lcm(n1, n2)) / (n1 * n2);
+
+                    let timeIntegral = 0;
+
+                    for (let it = 0; it < numT; it++) {
+                        const t = (it / (numT - 1)) * T_period;
+                        const cosOmega1T = Math.cos(omega1 * t);
+                        const cosOmega2T = Math.cos(omega2 * t);
+
+                        let spatialIntegral = 0;
+
+                        for (let ix = 0; ix < numX; ix++) {
+                            const x = ix / (numX - 1);
+
+                            const dwdx = A * n1 * PI * Math.cos(n1 * PI * x) * cosOmega1T
+                                       + A * n2 * PI * Math.cos(n2 * PI * x) * cosOmega2T;
+
+                            const epsilon = 0.5 * dwdx * dwdx;
+                            const rho = E_sigma_y * epsilon;
+
+                            spatialIntegral += rho * rho;
+                        }
+
+                        spatialIntegral /= numX;
+                        const rho_spatial = Math.sqrt(spatialIntegral);
+                        timeIntegral += rho_spatial;
+                    }
+
+                    R[n1][n2] = timeIntegral / numT;
+                    R[n2][n1] = R[n1][n2];
+
+                    computedPairs++;
+                    if (computedPairs % Math.floor(totalPairs / 50) === 0) {
+                        progressCallback(computedPairs / totalPairs);
+                    }
+                }
+            }
+
+            return R;
+        }
+
+        // ============================================================
+        // CANVAS HEATMAP
+        // ============================================================
+
+        function drawHeatmap(R, N) {
+            const canvas = document.getElementById('heatmapCanvas');
+            const container = document.getElementById('heatmapContainer');
+            const placeholder = document.getElementById('heatmapPlaceholder');
+            const colorbar = document.getElementById('colorbar');
+
+            placeholder.style.display = 'none';
+            canvas.style.display = 'block';
+            colorbar.style.display = 'flex';
+
+            const padding = { left: 50, right: 80, top: 30, bottom: 50 };
+            const size = Math.min(container.clientWidth - padding.left - padding.right - 40, 450);
+
+            canvas.width = size + padding.left + padding.right;
+            canvas.height = size + padding.top + padding.bottom;
+
+            const ctx = canvas.getContext('2d');
+            const cellSize = size / N;
+
+            // Find min/max
+            minVal = Infinity;
+            maxVal = -Infinity;
+            for (let i = 1; i <= N; i++) {
+                for (let j = 1; j <= N; j++) {
+                    minVal = Math.min(minVal, R[i][j]);
+                    maxVal = Math.max(maxVal, R[i][j]);
+                }
+            }
+
+            // Background
+            ctx.fillStyle = '#12121a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw cells
+            for (let i = 1; i <= N; i++) {
+                for (let j = 1; j <= N; j++) {
+                    const t = (R[i][j] - minVal) / (maxVal - minVal || 1);
+                    ctx.fillStyle = valueToColor(t);
+                    ctx.fillRect(
+                        padding.left + (j - 1) * cellSize,
+                        padding.top + (i - 1) * cellSize,
+                        cellSize + 0.5,
+                        cellSize + 0.5
+                    );
+                }
+            }
+
+            // Axes
+            ctx.fillStyle = '#9090a0';
+            ctx.font = '11px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center';
+
+            // X-axis labels
+            const tickInterval = N > 50 ? Math.ceil(N / 5) : (N > 20 ? 5 : 1);
+            for (let j = 1; j <= N; j += tickInterval) {
+                const x = padding.left + (j - 0.5) * cellSize;
+                ctx.fillText(j.toString(), x, canvas.height - padding.bottom + 20);
+            }
+
+            // Y-axis labels
+            ctx.textAlign = 'right';
+            for (let i = 1; i <= N; i += tickInterval) {
+                const y = padding.top + (i - 0.5) * cellSize + 4;
+                ctx.fillText(i.toString(), padding.left - 10, y);
+            }
+
+            // Axis titles
+            ctx.fillStyle = '#e8e8ed';
+            ctx.font = '12px "Space Grotesk", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Mode n₂', padding.left + size / 2, canvas.height - 10);
+
+            ctx.save();
+            ctx.translate(15, padding.top + size / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Mode n₁', 0, 0);
+            ctx.restore();
+
+            // Update colorbar
+            const gradient = document.getElementById('colorbarGradient');
+            gradient.style.background = `linear-gradient(to bottom, 
+                ${valueToColor(1)}, 
+                ${valueToColor(0.8)}, 
+                ${valueToColor(0.6)}, 
+                ${valueToColor(0.4)}, 
+                ${valueToColor(0.2)}, 
+                ${valueToColor(0)})`;
+
+            document.getElementById('colorbarMax').textContent = maxVal.toFixed(2);
+            document.getElementById('colorbarMin').textContent = minVal.toFixed(2);
+
+            // Store for interaction
+            canvas.dataset.padding = JSON.stringify(padding);
+            canvas.dataset.cellSize = cellSize;
+            canvas.dataset.N = N;
+        }
+
+        // ============================================================
+        // CANVAS LINE CHART
+        // ============================================================
+
+        function drawCurve(n_ref, R, N) {
+            const canvas = document.getElementById('curveCanvas');
+            const container = document.getElementById('curveContainer');
+            const placeholder = document.getElementById('curvePlaceholder');
+
+            placeholder.style.display = 'none';
+            canvas.style.display = 'block';
+
+            document.getElementById('selectedModeInfo').style.display = 'block';
+            document.getElementById('selectedModeN').textContent = n_ref;
+
+            const padding = { left: 70, right: 30, top: 40, bottom: 50 };
+            const width = container.clientWidth - 40;
+            const height = 450;
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext('2d');
+            const plotWidth = width - padding.left - padding.right;
+            const plotHeight = height - padding.top - padding.bottom;
+
+            // Get data
+            const data = [];
+            let yMin = Infinity, yMax = -Infinity;
+            for (let n2 = 1; n2 <= N; n2++) {
+                const val = R[n_ref][n2];
+                data.push({ x: n2, y: val, ratio: n2 / n_ref });
+                yMin = Math.min(yMin, val);
+                yMax = Math.max(yMax, val);
+            }
+
+            const yRange = yMax - yMin || 1;
+            yMin -= yRange * 0.05;
+            yMax += yRange * 0.05;
+
+            // Background
+            ctx.fillStyle = '#12121a';
+            ctx.fillRect(0, 0, width, height);
+
+            // Grid
+            ctx.strokeStyle = '#2a2a3a';
+            ctx.lineWidth = 1;
+
+            const xToPixel = (x) => padding.left + ((x - 1) / (N - 1)) * plotWidth;
+            const yToPixel = (y) => padding.top + plotHeight - ((y - yMin) / (yMax - yMin)) * plotHeight;
+
+            // Y grid lines
+            const yTicks = 5;
+            for (let i = 0; i <= yTicks; i++) {
+                const y = yMin + (i / yTicks) * (yMax - yMin);
+                const py = yToPixel(y);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, py);
+                ctx.lineTo(width - padding.right, py);
+                ctx.stroke();
+            }
+
+            // Draw octave marker if in range
+            const octaveN = n_ref * 2;
+            if (octaveN <= N) {
+                ctx.strokeStyle = '#ff6b35';
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                const ox = xToPixel(octaveN);
+                ctx.moveTo(ox, padding.top);
+                ctx.lineTo(ox, height - padding.bottom);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.fillStyle = '#ff6b35';
+                ctx.font = '10px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('2:1 (octave)', ox, padding.top - 8);
+            }
+
+            // Draw line
+            ctx.strokeStyle = '#00d4ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            data.forEach((d, i) => {
+                const px = xToPixel(d.x);
+                const py = yToPixel(d.y);
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            });
+            ctx.stroke();
+
+            // Draw points
+            ctx.fillStyle = '#00d4ff';
+            if (N <= 100) {
+                data.forEach(d => {
+                    const px = xToPixel(d.x);
+                    const py = yToPixel(d.y);
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+
+            // Axes labels
+            ctx.fillStyle = '#9090a0';
+            ctx.font = '10px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center';
+
+            // X-axis
+            const xTickInterval = N > 50 ? Math.ceil(N / 5) : (N > 20 ? 5 : 1);
+            for (let x = 1; x <= N; x += xTickInterval) {
+                ctx.fillText(x.toString(), xToPixel(x), height - padding.bottom + 20);
+            }
+
+            // Y-axis
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= yTicks; i++) {
+                const y = yMin + (i / yTicks) * (yMax - yMin);
+                ctx.fillText(y.toFixed(2), padding.left - 10, yToPixel(y) + 4);
+            }
+
+            // Titles
+            ctx.fillStyle = '#e8e8ed';
+            ctx.font = '12px "Space Grotesk", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Mode n₂', padding.left + plotWidth / 2, height - 10);
+
+            ctx.save();
+            ctx.translate(15, padding.top + plotHeight / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText(`R[${n_ref}, n₂]`, 0, 0);
+            ctx.restore();
+
+            // Title
+            ctx.fillStyle = '#9090a0';
+            ctx.font = '13px "Space Grotesk", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Stress curve for reference mode n = ${n_ref}`, padding.left, 20);
+
+            // Store for interaction
+            canvas.dataset.padding = JSON.stringify(padding);
+            canvas.dataset.plotWidth = plotWidth;
+            canvas.dataset.plotHeight = plotHeight;
+            canvas.dataset.N = N;
+            canvas.dataset.yMin = yMin;
+            canvas.dataset.yMax = yMax;
+            canvas.dataset.n_ref = n_ref;
+        }
+
+        // ============================================================
+        // INTERACTION HANDLERS
+        // ============================================================
+
+        function setupHeatmapInteraction() {
+            const canvas = document.getElementById('heatmapCanvas');
+            const tooltip = document.getElementById('heatmapTooltip');
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (!currentMatrix) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const padding = JSON.parse(canvas.dataset.padding);
+                const cellSize = parseFloat(canvas.dataset.cellSize);
+                const N = parseInt(canvas.dataset.N);
+
+                const col = Math.floor((x - padding.left) / cellSize) + 1;
+                const row = Math.floor((y - padding.top) / cellSize) + 1;
+
+                if (col >= 1 && col <= N && row >= 1 && row <= N) {
+                    const val = currentMatrix[row][col];
+                    tooltip.innerHTML = `n₁=${row}, n₂=${col}<br>R=${val.toFixed(4)}`;
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+                    tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+
+            canvas.addEventListener('click', (e) => {
+                if (!currentMatrix) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const y = e.clientY - rect.top;
+
+                const padding = JSON.parse(canvas.dataset.padding);
+                const cellSize = parseFloat(canvas.dataset.cellSize);
+                const N = parseInt(canvas.dataset.N);
+
+                const row = Math.floor((y - padding.top) / cellSize) + 1;
+
+                if (row >= 1 && row <= N) {
+                    drawCurve(row, currentMatrix, N);
+                }
+            });
+        }
+
+        function setupCurveInteraction() {
+            const canvas = document.getElementById('curveCanvas');
+            const tooltip = document.getElementById('curveTooltip');
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (!currentMatrix || !canvas.dataset.n_ref) return;
+
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const padding = JSON.parse(canvas.dataset.padding);
+                const plotWidth = parseFloat(canvas.dataset.plotWidth);
+                const N = parseInt(canvas.dataset.N);
+                const n_ref = parseInt(canvas.dataset.n_ref);
+
+                const n2 = Math.round(1 + ((x - padding.left) / plotWidth) * (N - 1));
+
+                if (n2 >= 1 && n2 <= N) {
+                    const val = currentMatrix[n_ref][n2];
+                    const ratio = (n2 / n_ref).toFixed(3);
+                    tooltip.innerHTML = `n₂=${n2}, ratio=${ratio}<br>R=${val.toFixed(4)}`;
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+                    tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+        }
+
+        // ============================================================
+        // UI HELPERS
+        // ============================================================
+
+        function setStatus(status, text, elapsed = '') {
+            document.getElementById('statusIndicator').className = 'status-indicator ' + status;
+            document.getElementById('statusText').textContent = text;
+            document.getElementById('elapsedTime').textContent = elapsed;
+        }
+
+        function setProgress(value) {
+            const container = document.getElementById('progressContainer');
+            const fill = document.getElementById('progressFill');
+
+            if (value > 0 && value < 1) {
+                container.classList.add('visible');
+                fill.style.width = (value * 100) + '%';
+            } else {
+                container.classList.remove('visible');
+                fill.style.width = '0%';
+            }
+        }
+
+        // ============================================================
+        // MAIN
+        // ============================================================
+
+        document.getElementById('btnCompute').addEventListener('click', async function() {
+            const btn = this;
+            const N = parseInt(document.getElementById('inputN').value);
+            const E_sigma_y = parseFloat(document.getElementById('inputESigma').value);
+            const measureType = document.getElementById('selectMeasure').value;
+            const ampType = document.getElementById('selectAmplitude').value;
+
+            if (N < 2 || N > 500) {
+                alert('N must be between 2 and 500');
+                return;
+            }
+            if (E_sigma_y <= 0) {
+                alert('E/σ_y must be positive');
+                return;
+            }
+            if (ampType !== 'equal') {
+                alert('Only "Equal amplitude (A=1)" is currently implemented.');
+                return;
+            }
+
+            btn.disabled = true;
+            setStatus('computing', `Computing ${N}×${N} matrix...`);
+
+            const startTime = performance.now();
+
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            try {
+                currentMatrix = computeStressMatrix(N, E_sigma_y, measureType, setProgress);
+                currentN = N;
+
+                const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+                setStatus('ready', 'Computation complete', `${elapsed}s`);
+                setProgress(0);
+
+                drawHeatmap(currentMatrix, N);
+
+                document.getElementById('selectedModeInfo').style.display = 'none';
+                document.getElementById('curvePlaceholder').style.display = 'block';
+                document.getElementById('curveCanvas').style.display = 'none';
+
+            } catch (error) {
+                console.error(error);
+                setStatus('', 'Error: ' + error.message);
+            }
+
+            btn.disabled = false;
+        });
+
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('btnCompute').click();
+                }
+            });
+        });
+
+        // Setup interactions
+        setupHeatmapInteraction();
+        setupCurveInteraction();
+    </script>
+</body>
+</html>
